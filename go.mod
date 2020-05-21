@@ -1,4 +1,4 @@
-module go-utoken
+module github.com/manu180/go-utoken
 
 go 1.14
 
