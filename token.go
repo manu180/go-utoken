@@ -10,14 +10,9 @@ var (
 )
 
 type Token struct {
-	Access  string `json:"access"`
-	Refresh string `json:"refresh"`
-	Claims  Claims `json:"claims"`
-}
-
-// Provides abstraction for Token's Claims
-type Claims interface {
-	Valid() error
+	Access  string        `json:"access"`
+	Refresh string        `json:"refresh"`
+	Claims  *AccessClaims `json:"claims"`
 }
 
 type AccessClaims struct {

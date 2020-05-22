@@ -70,7 +70,7 @@ func TimeFunc(f func() time.Time) OptProvider {
 }
 
 // Creates a Token (Acces + Refresh)
-func (p *Provider) New(c Claims) (*Token, error) {
+func (p *Provider) New(c *AccessClaims) (*Token, error) {
 	// create token holding properties
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
 
@@ -88,10 +88,10 @@ func (p *Provider) New(c Claims) (*Token, error) {
 }
 
 // Returns the claims associated with the given access token
-func (p *Provider) Parse(at string, claims Claims) error {
+func (p *Provider) Parse(at string, cl *AccessClaims) error {
 	// set the time provider in order to enable testing the expiry date
 	jwt.TimeFunc = p.temporality
-	_, err := jwt.ParseWithClaims(at, claims, func(t *jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(at, cl, func(t *jwt.Token) (interface{}, error) {
 		// Don't forget to validate the alg is what you expect:
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errInvalidSigningMethod
@@ -140,7 +140,7 @@ func (p *Provider) Refresh(rt string) (*Token, error) {
 }
 
 // Returns Claims associated with the given Refresh Token
-func getClaims(rt string) (Claims, error) {
+func getClaims(rt string) (*AccessClaims, error) {
 	return &AccessClaims{}, nil
 }
 

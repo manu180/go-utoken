@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-type JWTClaims struct {
-	jwt.StandardClaims
-}
-
 func TestNewProvider(t *testing.T) {
 	timeStub := func() time.Time {
 		return time.Date(2020, time.March, 5, 0, 0, 0, 0, time.UTC)
@@ -80,11 +76,11 @@ func TestNewToken(t *testing.T) {
 	}
 	svc := NewProvider("shannon")
 	table := []struct {
-		claims Claims
+		claims *AccessClaims
 		access string
 	}{
 		{
-			&JWTClaims{
+			&AccessClaims{
 				jwt.StandardClaims{
 					Audience:  "App1",
 					Subject:   "Taylor",
@@ -113,11 +109,11 @@ func TestParseToken(t *testing.T) {
 	svc := NewProvider("shannon", func(c *Provider) { c.temporality = timeStub })
 	table := []struct {
 		token  string
-		claims *JWTClaims
+		claims *AccessClaims
 	}{
 		{
 			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJBcHAxIiwiZXhwIjoxNTgzMzY2NzAwLCJpYXQiOjE1ODMzNjY0MDAsInN1YiI6IlRheWxvciJ9.bmmYJDx5GvGq10H0xIMW01aTOM1T7BztTZ_DxRWfHgE",
-			&JWTClaims{
+			&AccessClaims{
 				jwt.StandardClaims{
 					Audience:  "App1",
 					Subject:   "Taylor",
@@ -128,7 +124,7 @@ func TestParseToken(t *testing.T) {
 		},
 	}
 	for _, v := range table {
-		var claims = &JWTClaims{}
+		var claims = &AccessClaims{}
 		err := svc.Parse(v.token, claims)
 		assert.NoError(t, err)
 		assert.Equal(t, v.claims.Audience, claims.Audience)
