@@ -21,6 +21,7 @@ type Provider struct {
 	signedMethod jwt.SigningMethod
 	accessExp    time.Duration
 	refreshExp   time.Duration
+	store        Store
 }
 
 type OptProvider func(*Provider)
@@ -31,13 +32,14 @@ type OptProvider func(*Provider)
 // - signedMethod : HS256
 // - accessExp : 5 minutes
 // - refreshExp : 30 days
-func NewProvider(key string, opts ...OptProvider) *Provider {
+func NewProvider(key string, store Store, opts ...OptProvider) *Provider {
 	cfg := &Provider{
 		temporality:  currentUTC,
 		signedKey:    []byte(key),
 		signedMethod: jwt.SigningMethodHS256,
 		accessExp:    time.Minute * 5,
 		refreshExp:   time.Hour * 720,
+		store:        store,
 	}
 	for _, v := range opts {
 		v(cfg)
@@ -71,17 +73,22 @@ func TimeFunc(f func() time.Time) OptProvider {
 
 // Creates a Token (Acces + Refresh)
 func (p *Provider) New(c *AccessClaims) (*Token, error) {
-	// create token holding properties
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, c)
-
-	// the raw token (string)
-	at, err := t.SignedString(p.signedKey)
+	// the access token
+	at, err := p.newAccessToken(c)
 	if err != nil {
 		return nil, err
 	}
+
+	// the refresh token
+	rt, err := p.newRefreshToken(c)
+	if err != nil {
+		return nil, err
+	}
+
+	// the whole token entity
 	token := &Token{
 		Access:  at,
-		Refresh: newRefreshTokenString(),
+		Refresh: rt,
 		Claims:  c,
 	}
 	return token, nil
@@ -124,18 +131,28 @@ func (p *Provider) Validate(at string) error {
 }
 
 func (p *Provider) Refresh(rt string) (*Token, error) {
-	// 1. retrieve the claims stored in Redis from the Refresh Token
-	claims, err := getClaims(rt)
+	// retrieve the claims stored in Redis from the Refresh Token
+	cl, err := p.store.Get(rt)
 	if err != nil {
 		return nil, err
 	}
-	// 2. generate a new access token & new refresh token
-	token, err := p.New(claims)
+
+	// update the claims
+	cl.ExpiresAt = p.temporality().Add(p.accessExp).UTC().Unix()
+	cl.IssuedAt = p.temporality().UTC().Unix()
+
+	// revoke former Refresh Token
+	err = p.revokeRefreshToken(rt)
 	if err != nil {
 		return nil, err
 	}
-	// rt := newRefreshTokenString() <- should be call from provider.New()
-	// 3. update Redis
+
+	// generate a new Token (access + refresh)
+	token, err := p.New(cl)
+	if err != nil {
+		return nil, err
+	}
+
 	return token, nil
 }
 
@@ -144,9 +161,35 @@ func getClaims(rt string) (*AccessClaims, error) {
 	return &AccessClaims{}, nil
 }
 
-func newRefreshTokenString() string {
+func (p Provider) newAccessToken(c *AccessClaims) (string, error) {
+	// create token holding properties
+	t := jwt.NewWithClaims(p.signedMethod, c)
+
+	// the access token
+	at, err := t.SignedString(p.signedKey)
+	if err != nil {
+		return "", err
+	}
+	return at, nil
+}
+
+func (p Provider) newRefreshToken(c *AccessClaims) (string, error) {
+	// generate random uuid
 	s := uuid.New().String()
-	code := base64.URLEncoding.EncodeToString([]byte(s))
-	code = strings.Trim(code, "=")
-	return code
+	rt := base64.URLEncoding.EncodeToString([]byte(s))
+	rt = strings.Trim(rt, "=")
+
+	err := p.store.Set(rt, c)
+	if err != nil {
+		return "", err
+	}
+	return rt, nil
+}
+
+func (p Provider) revokeRefreshToken(rt string) error {
+	_, err := p.store.Del(rt)
+	if err != nil {
+		return err
+	}
+	return nil
 }
