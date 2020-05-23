@@ -41,7 +41,6 @@ func TestNewProvider(t *testing.T) {
 				signedKey:    []byte("shannon"),
 				signedMethod: jwt.SigningMethodHS256,
 				accessExp:    time.Minute * 5,
-				refreshExp:   time.Hour * 720, // 30 days
 			},
 		},
 		{
@@ -55,7 +54,6 @@ func TestNewProvider(t *testing.T) {
 				signedKey:    []byte("shannon"),
 				signedMethod: jwt.SigningMethodHS512,
 				accessExp:    time.Minute * 5,
-				refreshExp:   time.Hour * 720, // 30 days
 			},
 		},
 		{
@@ -64,21 +62,18 @@ func TestNewProvider(t *testing.T) {
 				func(cfg *Provider) { cfg.temporality = timeStub },
 				Alg("HS512"),
 				AccessExpIn(time.Minute * 53),
-				RefreshExpIn(time.Hour * 240),
 			},
 			Provider{
 				temporality:  timeStub,
 				signedKey:    []byte("shannon"),
 				signedMethod: jwt.SigningMethodHS512,
 				accessExp:    time.Minute * 53,
-				refreshExp:   time.Hour * 240, // 10 days
 			},
 		},
 	}
 	for _, v := range table {
 		cfg := NewProvider(v.key, store, v.opts...)
 		assert.Equal(t, v.config.accessExp, cfg.accessExp)
-		assert.Equal(t, v.config.refreshExp, cfg.refreshExp)
 		assert.Equal(t, v.config.signedKey, cfg.signedKey)
 		assert.Equal(t, v.config.signedMethod, cfg.signedMethod)
 		assert.Equal(t, v.config.temporality(), cfg.temporality())

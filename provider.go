@@ -20,7 +20,6 @@ type Provider struct {
 	signedKey    []byte
 	signedMethod jwt.SigningMethod
 	accessExp    time.Duration
-	refreshExp   time.Duration
 	store        Store
 }
 
@@ -31,14 +30,12 @@ type OptProvider func(*Provider)
 // - temporality : time.Now()
 // - signedMethod : HS256
 // - accessExp : 5 minutes
-// - refreshExp : 30 days
 func NewProvider(key string, store Store, opts ...OptProvider) *Provider {
 	cfg := &Provider{
 		temporality:  currentUTC,
 		signedKey:    []byte(key),
 		signedMethod: jwt.SigningMethodHS256,
 		accessExp:    time.Minute * 5,
-		refreshExp:   time.Hour * 720,
 		store:        store,
 	}
 	for _, v := range opts {
@@ -50,12 +47,6 @@ func NewProvider(key string, store Store, opts ...OptProvider) *Provider {
 func AccessExpIn(d time.Duration) OptProvider {
 	return func(cfg *Provider) {
 		cfg.accessExp = d
-	}
-}
-
-func RefreshExpIn(d time.Duration) OptProvider {
-	return func(cfg *Provider) {
-		cfg.refreshExp = d
 	}
 }
 
