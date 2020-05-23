@@ -1,9 +1,14 @@
 package token
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"time"
+)
+
+var (
+	errKeyNotFound = errors.New("Key does not exist.")
 )
 
 // Refresh token that satisfies the Store interface
@@ -80,6 +85,9 @@ func (s *rediStore) Get(rt string) (*AccessClaims, error) {
 	v, err := redis.Values(c.Do("HGETALL", s.prefix+rt))
 	if err != nil {
 		return nil, err
+	}
+	if len(v) < 1 {
+		return nil, errKeyNotFound
 	}
 	var claims = AccessClaims{}
 	err = redis.ScanStruct(v, &claims)

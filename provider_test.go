@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+var (
+	timeStub func() time.Time
+	store    Store
+)
+
 type mockStore struct{}
 
 func (s *mockStore) Get(rt string) (*AccessClaims, error) {
@@ -21,11 +26,14 @@ func (s *mockStore) Del(rt string) (int64, error) {
 	return 1, nil
 }
 
-func TestNewProvider(t *testing.T) {
-	timeStub := func() time.Time {
+func init() {
+	timeStub = func() time.Time {
 		return time.Date(2020, time.March, 5, 0, 0, 0, 0, time.UTC)
 	}
-	store := &mockStore{}
+	store = &mockStore{}
+}
+
+func TestNewProvider(t *testing.T) {
 	table := []struct {
 		key    string
 		opts   []OptProvider
@@ -81,10 +89,6 @@ func TestNewProvider(t *testing.T) {
 }
 
 func TestNewToken(t *testing.T) {
-	timeStub := func() time.Time {
-		return time.Date(2020, time.March, 5, 0, 0, 0, 0, time.UTC)
-	}
-	store := &mockStore{}
 	svc := NewProvider("shannon", store)
 	table := []struct {
 		claims *AccessClaims
@@ -114,10 +118,6 @@ func TestNewToken(t *testing.T) {
 }
 
 func TestParseToken(t *testing.T) {
-	timeStub := func() time.Time {
-		return time.Date(2020, time.March, 5, 0, 0, 0, 0, time.UTC)
-	}
-	store := &mockStore{}
 	svc := NewProvider("shannon", store, func(c *Provider) { c.temporality = timeStub })
 	table := []struct {
 		token  string
@@ -147,10 +147,6 @@ func TestParseToken(t *testing.T) {
 }
 
 func TestValidateToken(t *testing.T) {
-	timeStub := func() time.Time {
-		return time.Date(2020, time.March, 5, 0, 0, 0, 0, time.UTC)
-	}
-	store := &mockStore{}
 	svc := NewProvider("shannon", store, func(c *Provider) { c.temporality = timeStub })
 	table := []struct {
 		token string
