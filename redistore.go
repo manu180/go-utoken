@@ -18,11 +18,11 @@ type rediStore struct {
 	pool   *redis.Pool
 }
 
-func NewRediStore(prefix string, addr string, pwd string, db int, exp time.Duration) *rediStore {
+func NewRediStore(prefix string, addr string, pwd string, db int, idleTimeout time.Duration, exp time.Duration) *rediStore {
 	s := rediStore{
 		prefix: prefix + ":",
 		exp:    exp,
-		pool:   newPool(addr, pwd, db),
+		pool:   newPool(addr, pwd, db, idleTimeout),
 	}
 	if err := s.ping(); err != nil {
 		log.Panicf("Unable to connect to Redis store : %v", err)
@@ -32,12 +32,15 @@ func NewRediStore(prefix string, addr string, pwd string, db int, exp time.Durat
 	return &s
 }
 
-func newPool(addr string, pwd string, db int) *redis.Pool {
+func newPool(addr string, pwd string, db int, idleTimeout time.Duration) *redis.Pool {
 	return &redis.Pool{
 		// Maximum number of idle connections in the pool.
 		MaxIdle: 80,
 		// max number of connections
 		MaxActive: 12000,
+		// time duration after which connections will be closed (0 -> connections never closed)
+		// !!! should be less than Redis server's timeout
+		IdleTimeout: idleTimeout,
 		// Dial is an application supplied function for creating and configuring a connection.
 		// on heroku it looks like that : redis://username:password@host:port
 		Dial: func() (redis.Conn, error) {
