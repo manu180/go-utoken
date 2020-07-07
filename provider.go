@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
 )
@@ -62,7 +63,7 @@ func TimeFunc(f func() time.Time) OptProvider {
 	}
 }
 
-// Creates a Token (Acces + Refresh)
+// Creates a Token (Acces & Refresh)
 func (p *Provider) New(c *AccessClaims) (*Token, error) {
 	// the access token
 	at, err := p.newAccessToken(c)
@@ -82,6 +83,7 @@ func (p *Provider) New(c *AccessClaims) (*Token, error) {
 		Refresh: rt,
 		Claims:  c,
 	}
+	log.Info("New Token (at & rt) generated successfully")
 	return token, nil
 }
 
@@ -98,6 +100,7 @@ func (p *Provider) Parse(at string, cl *AccessClaims) error {
 		return []byte(p.signedKey), nil
 	})
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -116,6 +119,7 @@ func (p *Provider) Validate(at string) error {
 		return []byte(p.signedKey), nil
 	})
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -138,12 +142,11 @@ func (p *Provider) Refresh(rt string) (*Token, error) {
 		return nil, err
 	}
 
-	// generate a new Token (access + refresh)
+	// generate a new Token (access & refresh)
 	token, err := p.New(cl)
 	if err != nil {
 		return nil, err
 	}
-
 	return token, nil
 }
 
@@ -159,6 +162,7 @@ func (p Provider) newAccessToken(c *AccessClaims) (string, error) {
 	// the access token
 	at, err := t.SignedString(p.signedKey)
 	if err != nil {
+		log.Error(err)
 		return "", err
 	}
 	return at, nil
@@ -172,6 +176,7 @@ func (p Provider) newRefreshToken(c *AccessClaims) (string, error) {
 
 	err := p.store.Set(rt, c)
 	if err != nil {
+		log.Error(err)
 		return "", err
 	}
 	return rt, nil
@@ -180,6 +185,7 @@ func (p Provider) newRefreshToken(c *AccessClaims) (string, error) {
 func (p Provider) revokeRefreshToken(rt string) error {
 	_, err := p.store.Del(rt)
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil

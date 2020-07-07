@@ -2,8 +2,8 @@ package token
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gomodule/redigo/redis"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -25,9 +25,10 @@ func NewRediStore(prefix string, addr string, pwd string, db int, exp time.Durat
 		pool:   newPool(addr, pwd, db),
 	}
 	if err := s.ping(); err != nil {
+		log.Panicf("Unable to connect to Redis store : %v", err)
 		panic("Unable to connect to redis " + err.Error())
 	}
-	fmt.Printf("Connection to Redis '%v' successfully established!\n\n", addr)
+	log.Infof("Connection to Redis %v successfully established!\n\n", addr)
 	return &s
 }
 
@@ -42,16 +43,19 @@ func newPool(addr string, pwd string, db int) *redis.Pool {
 		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", addr)
 			if err != nil {
+				log.Panic(err)
 				panic(err.Error())
 			}
 			// authenticate with password
 			if _, err := c.Do("AUTH", pwd); err != nil {
 				c.Close()
+				log.Error(err)
 				return nil, err
 			}
 			// select the database
 			if _, err := c.Do("SELECT", db); err != nil {
 				c.Close()
+				log.Error(err)
 				return nil, err
 			}
 			return c, err
@@ -67,6 +71,7 @@ func (s *rediStore) ping() error {
 	// Send PING command to Redis
 	_, err := c.Do("PING")
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	// PING command returns a Redis "Simple String"
@@ -84,14 +89,17 @@ func (s *rediStore) Get(rt string) (*AccessClaims, error) {
 	defer c.Close()
 	v, err := redis.Values(c.Do("HGETALL", s.prefix+rt))
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 	if len(v) < 1 {
+		log.Error(errKeyNotFound)
 		return nil, errKeyNotFound
 	}
 	var claims = AccessClaims{}
 	err = redis.ScanStruct(v, &claims)
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 	return &claims, nil
@@ -104,6 +112,7 @@ func (s *rediStore) Set(rt string, cl *AccessClaims) error {
 	// Heroku RedisToGo still runs with 3.2.12 as default
 	_, err := c.Do("HMSET", redis.Args{s.prefix + rt}.AddFlat(cl)...)
 	if err != nil {
+		log.Error(err)
 		return err
 	}
 	return nil
@@ -114,6 +123,7 @@ func (s *rediStore) Del(rt string) (int64, error) {
 	defer c.Close()
 	v, err := c.Do("DEL", s.prefix+rt)
 	if err != nil {
+		log.Error(err)
 		return 0, err
 	}
 	i := v.(int64)
